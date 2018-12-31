@@ -1,0 +1,64 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# README
+#
+# Getting Started:
+# 1. vagrant plugin install vagrant-hostmanager
+# 2. vagrant up
+# 8. vagrant ssh
+#
+# This should put you at the control host
+#  with access, by name, to other vms
+Vagrant.configure(2) do |config|
+  config.hostmanager.enabled = true
+
+
+  config.vm.define "ansible", primary: true do |h|
+    h.vm.box = "ubuntu/xenial64"
+    h.vm.network "private_network", ip: "192.168.56.15"
+    h.vm.hostname = 'ansible'
+    h.vm.provision "file", source: "c:/DevOps/vagrant_ansible/configuration", destination: "/tmp/cdproject"
+    h.vm.provision :shell, path: "bootstrap.sh"
+    h.vm.provision :shell, path: "ansible.sh"
+    h.vm.provision "shell", inline: <<-SHELL
+    cp -r /tmp/cdproject /etc/ansible/
+    SHELL
+  end
+
+  config.vm.define "web01" do |h|
+    h.vm.box = "nrel/CentOS-6.5-x86_64"
+    h.vm.network "private_network", ip: "192.168.56.16"
+    h.vm.hostname = 'web01'
+    h.vm.provision :shell, path: "bootstrap.sh"
+    h.vm.provision "shell", inline: <<-SHELL
+    service iptables stop
+    chkconfig iptables off
+    SHELL
+  end
+
+  config.vm.define "web02" do |h|
+    h.vm.box = "nrel/CentOS-6.5-x86_64"
+    h.vm.network "private_network", ip: "192.168.56.17"
+    h.vm.hostname = 'web02'
+    h.vm.provision :shell, path: "bootstrap.sh"
+    h.vm.provision "shell", inline: <<-SHELL
+    service iptables stop
+    chkconfig iptables off
+    SHELL
+  end
+
+  config.vm.define "web03" do |h|
+    h.vm.box = "ubuntu/xenial64"
+    h.vm.network "private_network", ip: "192.168.56.18"
+    h.vm.hostname = 'web03'
+    h.vm.provision :shell, path: "bootstrap.sh"
+  end
+
+  config.vm.define "db01" do |h|
+    h.vm.box = "ubuntu/xenial64"
+    h.vm.network "private_network", ip: "192.168.56.19"
+    h.vm.hostname = 'db01'
+    h.vm.provision :shell, path: "bootstrap.sh"
+  end
+end
