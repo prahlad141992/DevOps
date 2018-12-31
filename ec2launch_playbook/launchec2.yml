@@ -1,0 +1,101 @@
+---
+#Example: Deploy EC2 instance in AWS from ansible playbook
+- name: Learning AWS Cloud Automation
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Get my public IP
+      ipify_facts:
+      register: myip
+
+    - debug:
+        msg: "{{myip}}"
+
+    - name: Create key hammer
+      ec2_key:
+        name: hammerkey
+        region: "{{region}}"
+        force: false
+      register: hammerkey_info
+
+    - copy:
+        content: "{{hammerkey_info.key.private_key}}\n"
+        dest: "./hammerkey.pem"
+        mode: 0400
+      when: hammerkey_info.changed
+
+    - name: Setup Hammer SG
+      ec2_group:
+        name: hammer-sg
+        description: learning sg in ansible
+        region: "{{region}}"
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: "{{myip.ansible_facts.ipify_public_ip}}/32"
+      register: hammersg_info
+
+    - name: Setup Hammer SG
+      ec2_group:
+        name: hammer-sg
+        description: learning sg in ansible
+        region: "{{region}}"
+        rules:
+          - proto: all
+            group_id: "{{hammersg_info.group_id}}"
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: "{{myip.ansible_facts.ipify_public_ip}}/32"
+      register: hammersg_info
+
+    - name: Launch hammer ec2 instance
+      ec2:
+        key_name: hammerkey
+        instance_type: t2.micro
+        image: "{{amiid}}"
+        region: "{{region}}"
+        instance_tags:
+          name: "hammerinst"
+          owner: "Prahlad"
+        exact_count: 1
+        count_tag:
+          name: "hammerinst"
+          owner: "Prahlad"
+        wait: yes
+        group_id: "{{hammersg_info.group_id}}"
+      register: hammerint_info
+
+    - debug:
+        msg: "{{hammerint_info}}"
+    - debug:
+            msg: "To Login Execute: ssh -i hammerkey.pem ec2-user@{{hammerint_info.tagged_instances[0].public_ip}}"
+
+    - name: wait for SSH to comeup
+      wait_for:
+        host: "{{hammerint_info.tagged_instances[0].public_ip}}"
+        port: 22
+        delay: 1
+        timeout: 5
+        state: started
+
+    - name: Add hammer inst IP to hammergrp
+      add_host:
+        hostname: "{{hammerint_info.tagged_instances[0].public_ip}}"
+        ansible_ssh_user: ec2-user
+        ansible_ssh_private_key_file: hammerkey.pem
+        ansible_python_interpreter: /usr/bin/python2.7
+        groups: hammergrp
+
+- name: Execute ansible tasks on hammergrp
+  hosts: hammergrp
+  remote_user: ec2-user
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Setup git
+      package:
+        name: git
+        state: present
+

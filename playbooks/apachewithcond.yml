@@ -1,0 +1,42 @@
+---
+- name: Setup web application on httpd service
+  hosts: webservers
+  tasks:
+    - name: Install the http on CentOS
+      yum:
+        name: httpd
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Install Apache on SuSE
+      zypper:
+        name: apache2
+        state: present
+      when: ansible_os_family == "Suse"
+
+    - name: Install Apache on Ubuntu
+      apt:
+        name: apache2
+        state: present
+      when: ansible_os_family == "Debian"          
+
+    - name: start the service on centos
+      service:
+        name: httpd
+        state: started
+        enabled: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: start services on SuSE
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+      when: ansible_os_family == "Suse"
+
+    - name: start services on ubuntu
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+      when: ansible_os_family == "Debian"

@@ -1,0 +1,291 @@
+---
+#setup continous delivery  build pipeline(Jenkins,Ansible,nexus,tomcat)
+- name: Setup CD Stack
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: get my public IP
+      ipify_facts:
+      register: myip
+
+    - debug:
+       msg: "{{myip}}"
+
+    - name: Creating Jenkins Security Group
+      ec2_group:
+        name: Jenkins_SG
+        description: Jenkins Traffic on port 22 and 8080 from myip
+        region: us-east-1
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: "{{myip.ansible_facts.ipify_public_ip}}/32"
+          - proto: tcp
+            from_port: 8080
+            to_port: 8080
+            cidr_ip: "{{myip.ansible_facts.ipify_public_ip}}/32"
+      register: JenkinsSG
+
+    - name: Creating Tomcat Security Group
+      ec2_group:
+        name: Tomcat_SG
+        description: Tomcat Traffic on port 22 and 8080 from myip
+        region: us-east-1
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: "{{myip.ansible_facts.ipify_public_ip}}/32"
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            group_id: "{{JenkinsSG.group_id}}"
+          - proto: tcp
+            from_port: 8080
+            to_port: 8080
+            cidr_ip: "{{myip.ansible_facts.ipify_public_ip}}/32"
+          - proto: tcp
+            from_port: 8080
+            to_port: 8080
+            group_id: "{{JenkinsSG.group_id}}"
+      register: TomcatSG
+
+
+    - name: Creating Nexus Security Group
+      ec2_group:
+        name: Nexus_SG
+        description: Nexus Traffic on port 22 and 8081 from myip
+        region: us-east-1
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: "{{myip.ansible_facts.ipify_public_ip}}/32"
+          - proto: tcp
+            from_port: 8081
+            to_port: 8081
+            cidr_ip: "{{myip.ansible_facts.ipify_public_ip}}/32"
+          - proto: tcp
+            from_port: 8081
+            to_port: 8081
+            group_id: "{{JenkinsSG.group_id}}"
+          - proto: tcp
+            from_port: 8081
+            to_port: 8081
+            group_id: "{{TomcatSG.group_id}}"
+      register: NexusSG
+
+    - name: Create vprofile ec2 key
+      ec2_key:
+        name: VProfile_key
+        region: us-east-1 
+      register: vpro_ec2_key 
+
+    - debug:
+        msg: "{{vpro_ec2_key.key.private_key}}"
+      when: vpro_ec2_key.changed
+
+    - name: Save Vprofile ec2 login private key
+      copy:
+        content: "{{ vpro_ec2_key.key.private_key }}\n" 
+        dest: "./VProfile_key.pem" 
+        mode: 0600
+      when: vpro_ec2_key.changed
+
+######################################################################      
+
+    - name: Creating All instance
+      ec2:
+         key_name: VProfile_key
+         region: us-east-1
+         instance_type: t2.micro
+         image: ami-0f9cf087c1f27d9b1
+         wait: yes
+         wait_timeout: 500
+         instance_tags:
+           Name: "{{item.name}}"
+           Project: Vprofile
+           Environment: Prod
+           Owner: Prahlad Singh
+         exact_count: 1
+         count_tag:
+           Name: "{{item.name}}"
+           Project: Vprofile
+           Environment: Prod
+           Owner: Prahlad Singh
+         monitoring: no
+#         vpc_subnet_id: "{{item.subnet}}"
+         group_id: "{{item.SGID}}"
+      loop:
+        - name: TomcatSTG
+          SGID: "{{TomcatSG.group_id}}"
+        - name: TomcatPROD
+          SGID: "{{TomcatSG.group_id}}"
+        - name: Jenkins-Server
+          SGID: "{{JenkinsSG.group_id}}"
+        - name: Nexus
+          SGID: "{{NexusSG.group_id}}"
+      register: stackinst
+
+    - debug:
+        msg: "{{item}}"
+      with_items:
+        - "{{stackinst.results[0].tagged_instances[0].public_ip}}"
+        - "{{stackinst.results[1].tagged_instances[0].public_ip}}"
+        - "{{stackinst.results[2].tagged_instances[0].public_ip}}"
+        - "{{stackinst.results[3].tagged_instances[0].public_ip}}"
+
+    - name: wait for SSH to comeup
+      wait_for: 
+        host: "{{item}}" 
+        port: 22 
+        delay: 1 
+        timeout: 5 
+        state: started
+      with_items:
+        - "{{stackinst.results[0].tagged_instances[0].public_ip}}"
+        - "{{stackinst.results[1].tagged_instances[0].public_ip}}"
+        - "{{stackinst.results[2].tagged_instances[0].public_ip}}"
+        - "{{stackinst.results[3].tagged_instances[0].public_ip}}"
+
+
+    - name: add Nexus server ip addresses to hosts group
+      add_host:
+        hostname: "{{stackinst.results[3].tagged_instances[0].public_ip}}"
+        ansible_ssh_user: ubuntu
+        ansible_ssh_private_key_file: VProfile_key.pem
+        ansible_python_interpreter: /usr/bin/python2.7
+        groups: nexus
+
+    - name: add Jenkins server ip addresses to hosts group
+      add_host:
+        hostname: "{{stackinst.results[2].tagged_instances[0].public_ip}}"
+        ansible_ssh_user: ubuntu
+        ansible_ssh_private_key_file: VProfile_key.pem
+        ansible_python_interpreter: /usr/bin/python2.7
+        groups: jenkins
+
+    - name: add Tomcat server ip addresses to hosts group
+      add_host:
+        hostname: "{{stackinst.results[1].tagged_instances[0].public_ip}}"
+        ansible_ssh_user: ubuntu
+        ansible_ssh_private_key_file: VProfile_key.pem
+        ansible_python_interpreter: /usr/bin/python2.7
+        groups: tomcat
+
+    - name: add Tomcat server ip addresses to hosts group
+      add_host:
+        hostname: "{{stackinst.results[0].tagged_instances[0].public_ip}}"
+        ansible_ssh_user: ubuntu
+        ansible_ssh_private_key_file: VProfile_key.pem
+        ansible_python_interpreter: /usr/bin/python2.7
+        groups: tomcat
+
+- name: Install python2.7
+  hosts: [jenkins, nexus, tomcat]
+  remote_user: ubuntu
+  become: yes
+  gather_facts: no
+  #  vars_files:
+  #    - group_vars/hostsfile
+  tasks:
+    - name: install python2.7
+      raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+
+- hosts: jenkins
+  become: yes
+  remote_user: root
+  gather_facts: false
+  tasks:
+    - name: installing python depencencies
+      apt:
+        name: ['python-pip', 'python-dev']
+        state: latest
+
+    - name: install packages
+      apt:
+        update_cache: yes
+        cache_valid_time: 86400
+        name: ['wget', 'git', 'openjdk-8-jdk', 'maven', 'apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common']
+        state: present
+      ignore_errors: true
+
+    - name: import key for jenkins 
+      apt_key:
+        url: https://pkg.jenkins.io/debian-stable/jenkins.io.key 
+        state: present
+
+    - name: Debian package repository of Jenkins and add key
+      apt_repository:
+        repo: deb http://pkg.jenkins.io/debian-stable binary/
+        state: present
+
+    - apt_repository:
+        repo: 'ppa:ansible/ansible'
+
+    - name: install jenkins & ansible 
+      apt:
+        name: ['jenkins', 'ansible']
+        state: present
+        update_cache: yes
+        cache_valid_time: 86400
+
+    - name: disable the firewall
+      ufw:
+        rule: deny
+        state: disabled
+
+    - name: Copy Jenkins Data files
+      copy:
+        src: files/jenkins_home.tar.gz
+        dest: /var/lib/jenkins_home.tar.gz
+
+    - name: Unarchive Jenkins Data files
+      unarchive:
+        src: /var/lib/jenkins_home.tar.gz
+        dest: /var/lib/
+        remote_src: yes
+      notify: Restart jenkins
+
+  handlers:
+    - name: Restart jenkins
+      service:
+        name: jenkins
+        state: restarted
+
+- hosts: nexus
+  become: yes
+  remote_user: root
+  gather_facts: false
+  tasks:
+    - name: install packages
+      apt:
+        update_cache: yes
+        name: ['wget', 'git', 'openjdk-8-jdk']
+        state: present
+
+    - name: disable the firewall
+      ufw:
+        rule: deny
+        state: disabled
+
+    - name: Copy Nexus Data files
+      copy:
+        src: files/nexus_data.tar.gz
+        dest: /usr/local/nexus_data.tar.gz
+
+    - name: Unarchive Nexus Data files
+      unarchive:
+        src: /usr/local/nexus_data.tar.gz
+        dest: /usr/local/
+        remote_src: yes
+
+    - name: Insert the nexus start/stop
+      blockinfile:
+        path: /etc/rc.local
+        block: |
+          export RUN_AS_USER=root
+          /usr/local/vpro-nexus/bin/nexus start
+        insertbefore: 'exit 0'

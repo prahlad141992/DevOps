@@ -1,0 +1,13 @@
+---
+- name: inset block in file.
+  hosts: db01
+  tasks:
+    - name: Insert the nexus start/stop
+      blockinfile:
+        path: /etc/rc.local
+        block: |
+          export RUN_AS_USER=root
+          /usr/local/nexus/bin/nexus start
+        insertbefore: 'exit 0'
+        backup: yes
+      when: ansible_os_family == "Debian"

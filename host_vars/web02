@@ -1,0 +1,3 @@
+# variable accessible only by web02 host
+username: webuser02
+timeoutvar: 50

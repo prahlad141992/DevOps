@@ -1,0 +1,2 @@
+# variable accessible by all the hosts in inventory
+timeoutvar: 100

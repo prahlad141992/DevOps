@@ -1,0 +1,9 @@
+---
+- name: inser line in file
+  hosts: db01
+  tasks:
+    - name: inset nexus file in rc.local
+      lineinfile:
+        path: /etc/rc.local
+        line: '/usr/local/nexus/bin/nexus start'
+        insertbefore: 'exit 0'

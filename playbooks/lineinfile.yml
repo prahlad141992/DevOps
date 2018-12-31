@@ -1,0 +1,10 @@
+---
+#Example : replace the Line
+- name: Change the selinux config file. Search and replace.
+  hosts: webservers
+  tasks:
+    - name: Search for SELINUX= replace with SELINUX=permissive
+      lineinfile:
+        path: /etc/selinux/config
+        regexp: '^SELINUX='
+        line: 'SELINUX=disabled'

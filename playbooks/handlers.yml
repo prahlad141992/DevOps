@@ -1,0 +1,34 @@
+---
+#Example: use of handler
+- name: Setup web application on httpd service
+  hosts: webservers
+  tasks:
+    - name: Install httpd on CentOS
+      yum:
+        name: httpd
+        state: present
+
+    - name: Start and enable httpd service
+      service:
+        name: httpd
+        state: started
+        enabled: yes
+
+    - name: Copy html file
+      copy:
+        content: "OS family  {{ansible_os_family}}. NodeName is {{ansible_nodename}}."
+        dest: /tmp/testhandler.txt
+      notify:
+        - Restart httpd
+
+    - name: Push index.html file
+      copy:
+        content: "OS family  {{ansible_os_family}}. NodeName is {{ansible_nodename}}."
+        dest: /var/www/html/index.html
+      notify:
+
+  handlers:
+    - name: Restart httpd
+      service:
+        name: httpd
+        state: restarted

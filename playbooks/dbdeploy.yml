@@ -1,0 +1,40 @@
+---
+#example: Install mysql-server in ubuntu host.
+- name: Playbook for Mysql server
+  hosts: dbservers
+  tasks:
+#    - name: Install mysql-server package
+#      apt:
+#        name: "{{item}}"
+#        state: latest
+#        update_cache: yes
+#        cache_valid_time: 86400
+#      with_items:
+#        - mysql-server
+#        - python-mysqldb
+#        - git
+#        - wget
+#        - unzip       
+    
+    - name: Install mysql-server package
+      apt:
+        name: ['mysql-server', 'python-mysqldb', 'git', 'wget', 'unzip']
+        state: latest
+        update_cache: yes
+
+    - name:  start my sql server
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Create new database with names 'accounts'
+      mysql_db:
+        name: accounts
+        state: present
+
+    - mysql_user:
+        name: admin
+        password: admin123
+        priv: '*.*:ALL'
+        state: present

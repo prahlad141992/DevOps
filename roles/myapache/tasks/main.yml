@@ -1,0 +1,32 @@
+---
+# tasks file for myapache
+- name: Ensure Apache installed
+  yum: name=httpd state=present
+  when: ansible_os_family == "RedHat"
+
+- name: creates directory
+  file: path=/var/www/html/ansible state=directory
+
+- name: Ensure Apache installed
+  yum: name=libselinux-python state=present
+  when: ansible_os_family == "RedHat"
+
+- name: Push a test file
+  copy:
+    src: testfile.txt
+    dest: /tmp/testfile.txt
+
+- name: Ensure Apache running
+  service: name=httpd enabled=yes state=started
+
+- name: Deploy configuration file
+  template: src=httpd.j2 dest=/etc/httpd/conf/httpd.conf
+  notify:
+    - Restart Apache
+
+- name: Copy Site files
+  template:
+    src: index.j2
+    dest: "{{doc_root}}/index.html"
+  notify:
+    - Restart Apache

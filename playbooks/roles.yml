@@ -1,0 +1,5 @@
+---
+- name: roles playbook
+  hosts: webservers
+  roles:
+    - myapache
