@@ -1,0 +1,60 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# README
+#
+# Getting Started:
+# 1. vagrant plugin install vagrant-hostmanager
+# 2. vagrant up
+# 8. vagrant ssh
+#
+# This should put you at the control host
+#  with access, by name, to other vms
+Vagrant.configure(2) do |config|
+  config.hostmanager.enabled = true
+
+
+  config.vm.define "jenkins", primary: true do |h|
+    h.vm.box = "ubuntu/xenial64"
+    h.vm.network "private_network", ip: "192.168.56.21"
+    h.vm.hostname = 'jenkins'
+    h.vm.provision "file", source: "c:/DevOps/vagrant_cdproject/jenkins_data/jenkins_home.tar.gz", destination: "/tmp/jenkins_data/jenkins_home.tar.gz"
+    h.vm.provision :shell, path: "bootstrap.sh"
+    h.vm.provision :shell, path: "jenkins.sh"
+    h.vm.provision :shell, path: "ansible.sh"
+    h.vm.provision "shell", inline: <<-SHELL
+    tar -xzvf /tmp/jenkins_data/jenkins_home.tar.gz -C /var/lib/
+    systemctl restart jenkins
+    SHELL
+
+  end
+
+  config.vm.define "nexus" do |h|
+    h.vm.box = "nrel/CentOS-6.5-x86_64"
+    h.vm.network "private_network", ip: "192.168.56.22"
+    h.vm.hostname = 'nexus'
+    h.vm.provision "file", source: "c:/DevOps/vagrant_cdproject/nexus_data/nexus_data.tar.gz", destination: "/tmp/nexus_data/nexus_data.tar.gz"
+    h.vm.provision :shell, path: "bootstrap.sh"
+    h.vm.provision "shell", inline: <<-SHELL
+    service iptables stop
+    chkconfig iptables off
+    tar -xzvf /tmp/nexus_data/nexus_data.tar.gz -C /usr/local/
+    echo "export RUN_AS_USER=root" >>/etc/rc.d/rc.local
+    echo "/usr/local/vpro-nexus/bin/nexus start" >>/etc/rc.d/rc.local
+    SHELL
+  end
+
+  config.vm.define "tomcatqa" do |h|
+    h.vm.box = "ubuntu/xenial64"
+    h.vm.network "private_network", ip: "192.168.56.23"
+    h.vm.hostname = 'tomcatqa'
+    h.vm.provision :shell, path: "bootstrap.sh"
+  end
+
+  config.vm.define "tomcatprod" do |h|
+    h.vm.box = "ubuntu/xenial64"
+    h.vm.network "private_network", ip: "192.168.56.24"
+    h.vm.hostname = 'tomcatprod'
+    h.vm.provision :shell, path: "bootstrap.sh"
+  end
+end
