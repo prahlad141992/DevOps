@@ -1,4 +1,4 @@
-## PTerraform
+## Terraform
 
 Infrastructure As Code
 
