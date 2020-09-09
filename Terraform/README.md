@@ -1,5 +1,6 @@
-Terraform 
-#Infrastructure As Code
+#Terraform
+
+Infrastructure As Code
 
 terraform init
 terraform apply --auto-approve
