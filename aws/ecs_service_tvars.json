@@ -1,0 +1,16 @@
+{
+"fargate_microservices": {
+    "prod-service-one": {
+        "name": "prod-service-one",
+        "task_definition": "prod-task-webserver-one",
+        "desired_count": "1",
+        "launch_type": "EC2"
+    },
+    "prod-service-two": {
+        "name": "prod-service-two",
+        "task_definition": "prod-task-webserver-two",
+        "desired_count": "1",
+        "launch_type": "EC2"
+    }
+  }
+}

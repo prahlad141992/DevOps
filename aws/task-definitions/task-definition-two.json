@@ -1,0 +1,15 @@
+[
+    {
+     "portMappings": [
+       {
+         "hostPort": 8080,
+         "protocol": "tcp",
+         "containerPort": 80
+       }
+     ],
+     "essential": true,
+     "memory": 128,
+     "image": "prahlad141992/sloopaweb:latest",
+     "name": "prod-task-webserver-two"
+   }
+   ]

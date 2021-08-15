@@ -1,0 +1,22 @@
+[
+    {
+     "portMappings": [
+       {
+         "hostPort": 80,
+         "protocol": "tcp",
+         "containerPort": 80
+       }
+     ],
+     "essential": true,
+     "mountPoints": [
+      {
+        "readOnly": null,
+        "containerPath": "/var/www/html",
+        "sourceVolume": "efs-html"
+      }
+    ],
+     "memory": 128,
+     "image": "prahlad141992/sloopaweb:latest",
+     "name": "prod-task-webserver-one"
+   }
+   ]

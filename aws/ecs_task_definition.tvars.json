@@ -1,0 +1,16 @@
+{
+  "ecs_tasks": {
+    "prod-task-one": {
+        "family": "prod-task-webserver-one",
+        "container_definition": "./task-definitions/task-definition-one.json",
+        "cpu": "4",
+        "memory": "64"
+    },
+    "prod-task-two": {
+        "family": "prod-task-webserver-two",
+        "container_definition": "./task-definitions/task-definition-two.json",
+        "cpu": "4",
+        "memory": "64"
+    }
+  }
+}
